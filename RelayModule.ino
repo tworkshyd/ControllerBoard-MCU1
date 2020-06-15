@@ -3,6 +3,13 @@
 #include "./libraries/MsTimer2/MsTimer2.cpp"
 //*****************
 #include "relayModule.h"
+float vout;
+float pressure;
+float Ipressure;
+float Epressure;
+float PIP;
+float PLAT;
+
 
 void setup() {
 
@@ -11,7 +18,7 @@ void setup() {
 
   Serial3.begin(115200);
 
-  pinMode(13, OUTPUT);
+  pinMode(INDICATOR_LED, OUTPUT);
 
   pinMode(INHALE_SYNC_PIN, OUTPUT);
   digitalWrite(INHALE_SYNC_PIN, HIGH);
@@ -44,6 +51,10 @@ void setup() {
   digitalWrite(INHALE_RELEASE_VLV_PIN, LOW);
 
 
+  INHALE_EXHALE_SYNC_PIN_OFF();  //DIGITAL PIN SYNC
+  inti_all_Valves();
+  //stop_timer();
+
 
   //home cycle on power up
   home_cycle = true;
@@ -56,21 +67,33 @@ void setup() {
   initialize_timer1_for_set_RPM(home_speed_value * 10.0);
   run_motor = true;
 
-  delay(2000);
+  delay(5000);
+  flag_Serial_requested = true;
+  Serial.println("Requesting paramemters : ");
   Serial3.print("$VSP10001&");
-  delay(2000);
-  
-  convert_all_set_params_2_machine_values();
-  INHALE_EXHALE_SYNC_PIN_OFF();  //DIGITAL PIN SYNC
-  int_valves();
-  //stop_timer();
 }
 
 
+
 void loop() {
+
+//#if GP_connected
+//  //delay(10);
+//  vout = analogRead(INHALE_GAUGE_PRESSURE) * 0.0048828125;
+//  pressure = ((vout - ((0.05 * 0.0)) - (5 * 0.04)) / (5 * 0.09));
+//  Ipressure = ((pressure - 0.07) / 0.09075);
+//  //Serial.print("Inhale :"); Serial.print(Ipressure); 
+//  
+//  vout = analogRead(EXHALE_GUAGE_PRESSURE) * 0.0048828125;
+//  pressure = ((vout - ((0.05 * 0.0)) - (5 * 0.04)) / (5 * 0.09));
+//  Epressure = ((pressure - 0.07) / 0.09075);
+//  //Serial.print("   Exhale:"); Serial.println(Epressure); 
+//#endif
+
   //Expansion completed & Compression start
   if ((cycle_start == true) && (exp_start == true) && (exp_end == true) && (exp_timer_end == true)) {
     EXHALE_VLV_CLOSE();
+    //Serial.print("PEEP:"); Serial.println(Epressure); 
     INHALE_VLV_OPEN();
     Serial.print("IER: 1:"); Serial.print(IER); Serial.print("  BPM: "); Serial.print(BPM); Serial.print("  TV: "); Serial.print(tidal_volume);
     Serial.print("  Stroke: "); Serial.println(Stroke_length);
@@ -85,13 +108,20 @@ void loop() {
   }
 
   //compression started & is in progress
-  if ((cycle_start == true) && (comp_start == true) && (comp_end == false)) {  }
+  if ((cycle_start == true) && (comp_start == true) && (comp_end == false)) {
+//       if(Ipressure > 40.0) {
+//          INHALE_VLV_CLOSE();
+//          //Stop motor
+//          Emergency_motor_stop = true;
+//       }
+  }
 
   //Compression completed & start Expansion
   if ((cycle_start == true) && (comp_start == true) && (comp_end == true)) {
     Start_exhale_cycle();
     inhale_hold_time = (inhale_time * (inhale_hold_percentage / 100)) * 1000;
     delay(inhale_hold_time); //expansion delay
+    //Serial.print("PLAT:"); Serial.println(Epressure); 
     EXHALE_VLV_OPEN();
     //Start_exhale_cycle();
   }
@@ -99,6 +129,11 @@ void loop() {
   //Expansion started & is in progress
   if ((cycle_start == true) && (exp_start == true) && (exp_end == false)) {  }
 }
+
+
+
+
+
 
 ISR(TIMER1_COMPA_vect) { //timer1 interrupt 1Hz toggles pin 13 (LED)
   //generates pulse wave of frequency 1Hz/2 = 0.5kHz (takes two cycles for full wave- toggle high then toggle low)
@@ -139,19 +174,20 @@ ISR(TIMER1_COMPA_vect) { //timer1 interrupt 1Hz toggles pin 13 (LED)
       if (Emergency_motor_stop == false) digitalWrite(MOTOR_STEP_PIN, digitalRead(MOTOR_STEP_PIN) ^ 1);
       run_pulse_count_temp = run_pulse_count_temp + 0.5;
       if (home_cycle == true) {
-        if (digitalRead(HOME_SENSOR_PIN) == 0) {
+        if (digitalRead(HOME_SENSOR_PIN) == HOME_SENSE_VALUE) {
           run_motor = false;
           run_pulse_count_temp = 0.0;
           home_cycle = false;
           motion_profile_count_temp = 0;
           Serial.println("Home Cycle Complete...");
-          if (cycle_start == true) int_start();
+          if (cycle_start == true) inti_Start();
         }
       }
       if ((cycle_start == true) && (digitalRead(MOTOR_DIR_PIN) == EXP_DIR)) {
-        if (digitalRead(HOME_SENSOR_PIN) == 0) {
+        if (digitalRead(HOME_SENSOR_PIN) == HOME_SENSE_VALUE) {
           run_pulse_count_temp = run_pulse_count;
           motion_profile_count_temp = CURVE_EXP_STEPS;
+          Emergency_motor_stop = true;
           //motion_profile_count_temp = 0;
           //run_pulse_count_temp = 0.0;
         }
@@ -175,6 +211,7 @@ ISR(TIMER1_COMPA_vect) { //timer1 interrupt 1Hz toggles pin 13 (LED)
           motion_profile_count_temp = 0;
           run_pulse_count_temp = 0.0;
           Emergency_motor_stop = false;
+          //Serial.print("PIP:"); Serial.println(Ipressure); 
           INHALE_RELEASE_VLV_CLOSE();
           INHALE_VLV_CLOSE();
           //commented as this will be Opened after Inhale-Hold Delay.
@@ -242,7 +279,7 @@ boolean Start_inhale_cycle() {
 
 boolean Exhale_timer_timout() {
   MsTimer2::stop();
-  digitalWrite(13, digitalRead(13) ^ 1);
+  digitalWrite(INDICATOR_LED, digitalRead(INDICATOR_LED) ^ 1);
   e_timer_end_millis = millis();
   EXHALE_VLV_CLOSE();
   INHALE_VLV_OPEN();
@@ -272,14 +309,14 @@ void load_TCCR1B_var(int TCCR1B_var_temp) {
 }
 
 boolean convert_all_set_params_2_machine_values() {
-  //Serial.println(("Speed curve calculations : "));
+  Serial.println(("Speed curve calculations : "));
 
   BPM = BPM_new;
   tidal_volume = tidal_volume_new;
   Stroke_length = Stroke_length_new;
   inhale_ratio = 1.0;
   IER = IER_new; exhale_ratio = IER_new;
-  
+
   //global variable
   cycle_time = 60.0 / BPM;
   inhale_time = (cycle_time * inhale_ratio) / (inhale_ratio + exhale_ratio);
@@ -290,7 +327,7 @@ boolean convert_all_set_params_2_machine_values() {
   Serial.print("Calculated Exhale Time: " ); Serial.println(exhale_time);
 
   float inhale_vpeak = ((Stroke_length * 0.8) / (inhale_time * 0.8)) ;
-  float exhale_vpeak = ((Stroke_length * 0.8) / (0.45 * 0.8));  //exhale_time
+  float exhale_vpeak = ((Stroke_length * 0.8) / (0.90 * 0.8));  //exhale_time
 
   compression_speed = ( inhale_vpeak / LEAD_SCREW_PITCH ) * 60;
   expansion_speed =   ( exhale_vpeak / LEAD_SCREW_PITCH ) * 60;

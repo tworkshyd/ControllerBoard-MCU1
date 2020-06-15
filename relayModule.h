@@ -12,8 +12,8 @@
   @{
 */
 /**************************************************************************/
-#ifndef _new_H
-#define _new_H
+#ifndef _relayModule_H
+#define _relayModule_H
 
 
 #define COMP_DIR HIGH             /*!< Defines the signal at Direction pin of motor driver for CCW rotation */
@@ -23,6 +23,7 @@
 #define CURVE_COMP_STEPS 21       /*!< During inhale motor forward motion is broken in 21 pieces to achieve trapozoidal motion profile */
 #define CURVE_EXP_STEPS 21        /*!< During exhale motor return motion is broken in 21 pieces to achieve trapozoidal motion profile */
 #define MIN_RPM_NO_ACCEL 250.0    /*!< This setting removes accel/decel in motion profile below mentioned RPM */
+#define HOME_SENSE_VALUE  LOW  //0 for PNP(alway high)   //1 for NPN (alway low)
 
 //A0-A15  D54 to D69
 #define INHALE_SYNC_PIN 66        /*!< A12 Ouput for digital sync for exhale */
@@ -30,12 +31,14 @@
 #define MOTOR_STEP_PIN  68        /*!< A14 Ouput for motor steps to control position & velocity */
 #define MOTOR_DIR_PIN   69        /*!< A15 Ouput for motor direction control CW/CCW */
 #define HOME_SENSOR_PIN  57       /*!< A3 Input for detecting home position for Moving assembly */
-#define INHALE_RELEASE_VLV_PIN 11  /*!< A8 Ouput for inhale high pressure release line solenoid On/Off */
-#define INHALE_VLV_PIN 13         /*!< Ouput for Inhale line solenoid On/Off */
-#define EXHALE_VLV_PIN 12         /*!< Ouput for Exhale line solenoid On/Off */
-#define O2Cyl_VLV_PIN 10          /*!< A9 Ouput for Cylinder Oxygen line solenoid On/Off */
-#define O2Hln_VLV_PIN 65          /*!< A10 Ouput for Hospital Oxygen line solenoid On/Off */
-
+#define INHALE_RELEASE_VLV_PIN 10 /*!< Ouput for inhale high pressure release line solenoid On/Off */
+#define INHALE_VLV_PIN 64         /*!<A10 Ouput for Inhale line solenoid On/Off */
+#define EXHALE_VLV_PIN 65         /*!< A11 Ouput for Exhale line solenoid On/Off */
+#define O2Cyl_VLV_PIN 11          /*!< Ouput for Cylinder Oxygen line solenoid On/Off */
+#define O2Hln_VLV_PIN 12          /*!< Ouput for Hospital Oxygen line solenoid On/Off */
+#define INDICATOR_LED 13          /*!< Ouput for Indicating which cycle is in progress. ON=Compression  & OFF=Expansion */
+#define INHALE_GAUGE_PRESSURE 61 
+#define EXHALE_GUAGE_PRESSURE 60
 
 /*!< Digital sync pins for other board */
 #define INHALE_SYNC_PIN_ON() {digitalWrite(INHALE_SYNC_PIN, HIGH);digitalWrite(EXHALE_SYNC_PIN, LOW);}       /*!< Digital sync PINs inhale=1 & exhale=0 */
@@ -56,7 +59,8 @@
 #define O2Hln_VLV_OPEN()  digitalWrite(O2Hln_VLV_PIN, HIGH)                         /*!< Hospital Oxygen line solenoid valve Open */
 #define O2Hln_VLV_CLOSE() digitalWrite(O2Hln_VLV_PIN, LOW)                          /*!< Hospital Oxygen line solenoid valve Close */
 
-
+volatile byte O2_line_option = 0;  //0 = O2 cylinder, 1 = O2 Hosp line & 3 = both off
+volatile bool flag_Serial_requested = false;
 volatile float compression_min_speed = MIN_RPM_NO_ACCEL;  /*!< This setting removes accel/decel in motion profile below mentioned RPM */
 volatile float expansion_min_speed = MIN_RPM_NO_ACCEL;    /*!< This setting removes accel/decel in motion profile below mentioned RPM */
 
@@ -78,7 +82,7 @@ volatile float inhale_hold_time = 0.5;      /*!< Calculated inhale hold time bas
 volatile float inhale_hold_percentage = 10; /*!< Set Percentage Value for inhale hold time calculation */
 
 
-volatile float tidal_volume = 500.0;        /*!< Machine runtime Tidal Volume setting to calcualte equivalent Stroke length to compress */
+volatile float tidal_volume = 350.0;        /*!< Machine runtime Tidal Volume setting to calcualte equivalent Stroke length to compress */
 volatile float BPM = 10.0;                  /*!< Machine runtime BPM setting to calculate cycle time */
 volatile float peak_prsur = 12.0;           /*!< Machine runtime PIP/PeakPressure/PAW */
 volatile float FiO2 = 21.0;                 /*!< Machine runtime Air+Oxygen Percentage on inhale Line */
@@ -88,7 +92,7 @@ volatile float exhale_ratio = 2.0;          /*!< Machine runtime exhale ration p
 volatile float Stroke_length = 75.0;        /*!< Machine runtime Auto calculated Stroke length based on Tidal Volume lookup table created based on our calibration.*/
 volatile float PEEP = 20.0;                 /*!< Machine runtime minimum PEEP value */
 
-volatile float tidal_volume_new = 500.0;    /*!< User setable Tidal Volume setting to calcualte equivalent Stroke length to compress */
+volatile float tidal_volume_new = 350.0;    /*!< User setable Tidal Volume setting to calcualte equivalent Stroke length to compress */
 volatile float BPM_new = 10.0;              /*!< User setable BPM setting to calculate cycle time */
 volatile float IER_new = 2.0;               /*!< User setable inhale:exhale ratio */
 volatile float inhale_ratio_new = 1.0;      /*!< User setable inale ratio part is always 1.0 for us */
@@ -141,7 +145,7 @@ String rxdata = "";                               /*!< string to store serial re
     @return indicates 0 for SUCCESS and 1 for FAILURE
 */
 /**************************************************************************/
-boolean convert_all_set_params_2_machine_values();
+boolean convert_all_set_params_2_machine_values(void);
 
 /**************************************************************************/
 /*!
@@ -151,7 +155,7 @@ boolean convert_all_set_params_2_machine_values();
     @return indicates 0 for SUCCESS and 1 for FAILURE
 */
 /**************************************************************************/
-boolean Start_exhale_cycle();
+boolean Start_exhale_cycle(void);
 
 /**************************************************************************/
 /*!
@@ -161,7 +165,7 @@ boolean Start_exhale_cycle();
     @return indicates 0 for SUCCESS and 1 for FAILURE
 */
 /**************************************************************************/
-boolean Start_inhale_cycle();
+boolean Start_inhale_cycle(void);
 
 /**************************************************************************/
 /*!
@@ -171,7 +175,7 @@ boolean Start_inhale_cycle();
     @return indicates 0 for SUCCESS and 1 for FAILURE
 */
 /**************************************************************************/
-boolean breathe_detected_skip_exhale_n_start_inhale();
+boolean breathe_detected_skip_exhale_n_start_inhale(void);
 
 /**************************************************************************/
 /*!
@@ -181,7 +185,7 @@ boolean breathe_detected_skip_exhale_n_start_inhale();
     @return indicates 0 for SUCCESS and 1 for FAILURE
 */
 /**************************************************************************/
-boolean Exhale_timer_timout();
+boolean Exhale_timer_timout(void);
 
 /**************************************************************************/
 /*!
@@ -191,7 +195,7 @@ boolean Exhale_timer_timout();
     @return indicates 0 for SUCCESS and 1 for FAILURE
 */
 /**************************************************************************/
-boolean int_syst();
+boolean inti_Home_n_Start(void);
 
 /**************************************************************************/
 /*!
@@ -201,7 +205,7 @@ boolean int_syst();
     @return indicates 0 for SUCCESS and 1 for FAILURE
 */
 /**************************************************************************/
-boolean int_stop();
+boolean inti_Stop_n_Home(void);
 
 
 /**************************************************************************/
@@ -224,7 +228,7 @@ boolean initialize_timer1_for_set_RPM(float rpm);
     @return indicates 0 for SUCCESS and 1 for FAILURE
 */
 /**************************************************************************/
-boolean stop_timer();
+boolean stop_timer(void);
 
 
 /**************************************************************************/
@@ -235,7 +239,17 @@ boolean stop_timer();
     @return indicates 0 for SUCCESS and 1 for FAILURE
 */
 /**************************************************************************/
-boolean Prcs_RxData();
+boolean Prcs_RxData(void);
+
+/**************************************************************************/
+/*!
+
+    @brief  Function to open selected O2 valve when machine starts.
+
+    @return indicates 0 for SUCCESS and 1 for FAILURE
+*/
+/**************************************************************************/
+boolean open_selected_O2_value(void);
 
 
 

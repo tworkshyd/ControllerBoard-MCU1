@@ -62,21 +62,21 @@ boolean Prcs_RxData() {
     if (p2 == "ST") {
       //stepper motor
       if (payload == "0000") {
-        int_stop();
+        inti_Stop_n_Home();
       }
     } else if (p2 == "IN") {
       if (payload == "0000") {
         //if (cycle_start == false)
-        int_syst();
+        inti_Home_n_Start();
       }
       if (payload == "0001") {
-        if (cycle_start == true) int_stop();
+        if (cycle_start == true) inti_Stop_n_Home();
       }
       if (payload == "0003") {
-        if ((cycle_start == true) && (digitalRead(HOME_SENSOR_PIN) == 0)) breathe_detected_skip_exhale_n_start_inhale();
+        if ((cycle_start == true) && (digitalRead(HOME_SENSOR_PIN) == HOME_SENSE_VALUE)) breathe_detected_skip_exhale_n_start_inhale();
       }
       if (payload == "0002") {
-        int_valves();
+        inti_all_Valves();
       }
     } else if (p2 == "PP") {
       if (payload == "0000") {
@@ -90,28 +90,32 @@ boolean Prcs_RxData() {
       tidal_volume_new = payload.toInt();
       Serial.print("TV : "); Serial.println(tidal_volume_new);
 
-      if (tidal_volume_new == 50) Stroke_length_new = 16;
-      if (tidal_volume_new == 100) Stroke_length_new = 24;
-      if (tidal_volume_new == 150) Stroke_length_new = 31;
-      if (tidal_volume_new == 200) Stroke_length_new = 37;
-      if (tidal_volume_new == 250) Stroke_length_new = 42;
-      if (tidal_volume_new == 300) Stroke_length_new = 48;
-      if (tidal_volume_new == 350) Stroke_length_new = 53;
-      if (tidal_volume_new == 400) Stroke_length_new = 57;
-      if (tidal_volume_new == 450) Stroke_length_new = 62;
-      if (tidal_volume_new == 500) Stroke_length_new = 66;
-      if (tidal_volume_new == 550) Stroke_length_new = 70;
-      if (tidal_volume_new == 600) Stroke_length_new = 74;
-      if (tidal_volume_new == 650) Stroke_length_new = 78;
-      if (tidal_volume_new == 700) Stroke_length_new = 82;
-      if (tidal_volume_new == 750) Stroke_length_new = 86;
-      if (tidal_volume_new == 800) Stroke_length_new = 90;
-      if (tidal_volume_new == 850) Stroke_length_new = 95;
-      if (tidal_volume_new == 900) Stroke_length_new = 100;
-      if (tidal_volume_new == 950) Stroke_length_new = 105;
+      //      if (tidal_volume_new == 50) Stroke_length_new = 16;
+      //      if (tidal_volume_new == 100) Stroke_length_new = 24;
+      //      if (tidal_volume_new == 150) Stroke_length_new = 31;
+      if (tidal_volume_new == 200) Stroke_length_new = 50;
+      if (tidal_volume_new == 250) Stroke_length_new = 56;
+      if (tidal_volume_new == 300) Stroke_length_new = 61.5;
+      if (tidal_volume_new == 350) Stroke_length_new = 66.70;
+      if (tidal_volume_new == 400) Stroke_length_new = 71.0;
+      if (tidal_volume_new == 450) Stroke_length_new = 75.5;
+      if (tidal_volume_new == 500) Stroke_length_new = 79.5;
+      if (tidal_volume_new == 550) Stroke_length_new = 83.3;
+      if (tidal_volume_new == 600) Stroke_length_new = 87.5;
+      if (tidal_volume_new == 650) Stroke_length_new = 92.8;
+      if (tidal_volume_new == 700) Stroke_length_new = 98;
+      //      if (tidal_volume_new == 750) Stroke_length_new = 86;
+      //      if (tidal_volume_new == 800) Stroke_length_new = 90;
+      //      if (tidal_volume_new == 850) Stroke_length_new = 95;
+      //      if (tidal_volume_new == 900) Stroke_length_new = 100;
+      //      if (tidal_volume_new == 950) Stroke_length_new = 105;
 
+      //Stroke_length_new=tidal_volume_new/10;
       Serial.print("SL : "); Serial.println(Stroke_length_new);
-      Serial3.print("$VSP20002&");
+      if (flag_Serial_requested == true) {
+        Serial3.print("$VSP20002&");
+      }
+
     }
     else if (p2 == "P2") {
       BPM_new = payload.toInt();
@@ -120,7 +124,9 @@ boolean Prcs_RxData() {
       Serial.print("cycle time : "); Serial.println(cycle_time);
       inhale_hold_time = (cycle_time * (inhale_hold_percentage / 100)) * 1000;
       Serial.print("Compression hold in mS: "); Serial.println(inhale_hold_time);
-      Serial3.print("$VSP50004&");
+      if (flag_Serial_requested == true) {
+        Serial3.print("$VSP50004&");
+      }
     }
     else if (p2 == "P3") {
       peak_prsur = payload.toInt();
@@ -136,7 +142,11 @@ boolean Prcs_RxData() {
       //      IER = 1020;
       //      inhale_ratio = 1.0;
       //      exhale_ratio = 2.0;
-      Serial3.print("$VSO20000&");
+      if (flag_Serial_requested == true) {
+        flag_Serial_requested = false;
+        convert_all_set_params_2_machine_values();
+        Serial3.print("$VSO20000&");
+      }
     }
     else if (p2 == "P6") {
       PEEP_new = payload.toInt();
@@ -174,26 +184,38 @@ boolean Prcs_RxData() {
       if (p3 == "01") {
         if (p4 == "00") {
           //digitalWrite(O2Cyl_VLV_PIN, LOW);
-          Serial.print("2Hln_VLV SELECTED");
-          O2Cyl_VLV_CLOSE();
-          O2Hln_VLV_OPEN();
+          Serial.println("2Hln_VLV SELECTED");
+          O2_line_option = 1;
+          if (cycle_start == true) {
+            O2Cyl_VLV_CLOSE();
+            O2Hln_VLV_OPEN();
+          }
         } else if (p4 == "01") {
           //digitalWrite(O2Cyl_VLV_PIN, HIGH);
-          Serial.print("O2Cyl_VLV SELECTED");
-          O2Cyl_VLV_OPEN();
-          O2Hln_VLV_CLOSE();
+          Serial.println("O2Cyl_VLV SELECTED");
+          O2_line_option = 0;
+          if (cycle_start == true) {
+            O2Cyl_VLV_OPEN();
+            O2Hln_VLV_CLOSE();
+          }
         }
       } else if (p3 == "02") {
         if (p4 == "00") {
           //digitalWrite(O2Hln_VLV_PIN, LOW);
-          Serial.print("O2Cyl_VLV SELECTED");
-          O2Hln_VLV_CLOSE();
-          O2Cyl_VLV_OPEN();
+          Serial.println("O2Cyl_VLV SELECTED");
+          O2_line_option = 0;
+          if (cycle_start == true) {
+            O2Hln_VLV_CLOSE();
+            O2Cyl_VLV_OPEN();
+          }
         } else if (p4 == "01") {
           //digitalWrite(O2Hln_VLV_PIN, HIGH);
-          Serial.print("2Hln_VLV SELECTED");
-          O2Hln_VLV_OPEN();
-          O2Cyl_VLV_CLOSE();
+          Serial.println("2Hln_VLV SELECTED");
+          O2_line_option = 1;
+          if (cycle_start == true) {
+            O2Hln_VLV_OPEN();
+            O2Cyl_VLV_CLOSE();
+          }
         }
       }
     }
@@ -201,9 +223,20 @@ boolean Prcs_RxData() {
   return true;
 }
 
+boolean open_selected_O2_value(void) {
+  if (O2_line_option == 0) {
+    Serial.println("O2Cyl_VLV Opened...");
+    O2Hln_VLV_CLOSE();
+    O2Cyl_VLV_OPEN();
+  } else
+  {
+    Serial.println("2Hln_VLV Opened...");
+    O2Hln_VLV_OPEN();
+    O2Cyl_VLV_CLOSE();
+  }
+}
 
-
-boolean int_valves() {
+boolean inti_all_Valves(void) {
   //Normally Opened
   EXHALE_VLV_OPEN();
   INHALE_VLV_OPEN();
@@ -231,26 +264,11 @@ boolean breathe_detected_skip_exhale_n_start_inhale() {
   return true;
 }
 
-boolean int_start() {
-  Emergency_motor_stop = false;
-  Serial.println("Skipping Home Cycle : ");
-  home_cycle = false;
-  cycle_start = true;
-  comp_start = false;
-  comp_end = false;
-  exp_start = true;
-  exp_end = true;
-  //exp_timer_end = true;
-  Exhale_timer_timout();
-  //run_motor = true
-  return true;
-}
-
-
-boolean int_stop() {
+boolean inti_Stop_n_Home() {
   cycle_start = false;
   Emergency_motor_stop = false;
   run_motor = true;
+  Exhale_timer_timout();
   Serial.println("Cycle Stop & goto Home : ");
   run_pulse_count = 200000;
   digitalWrite(MOTOR_DIR_PIN, EXP_DIR);
@@ -263,15 +281,15 @@ boolean int_stop() {
   cycle_start = false;
   run_motor = true;
   INHALE_EXHALE_SYNC_PIN_OFF();  //DIGITAL PIN SYNC
-  int_valves();
+  inti_all_Valves();
   return true;
 }
 
-boolean int_syst() {
+boolean inti_Home_n_Start() {
   Emergency_motor_stop = false;
   motion_profile_count_temp = 0;
   run_pulse_count_temp = 0.0;
-  if (digitalRead(HOME_SENSOR_PIN) == 1)
+  if (digitalRead(HOME_SENSOR_PIN) == !(HOME_SENSE_VALUE))
   {
     Serial.println("Home Cycle : ");
     run_pulse_count = 200000;
@@ -287,17 +305,24 @@ boolean int_syst() {
     cycle_start = true;
     Serial3.print("$VSSY0000&");
   } else {
-    convert_all_set_params_2_machine_values();
-    Serial.println("Skipping Home Cycle : ");
-    convert_all_set_params_2_machine_values();
-    home_cycle = false;
-    comp_start = false;
-    comp_end = false;
-    exp_start = true;
-    exp_end = true;
-    Exhale_timer_timout();
-    //run_motor = true;
-    cycle_start = true;
+    inti_Start();
   }
+  return true;
+}
+
+boolean inti_Start() {
+  convert_all_set_params_2_machine_values();
+  open_selected_O2_value();
+  Emergency_motor_stop = false;
+  Serial.println("Skipping Home Cycle : ");
+  home_cycle = false;
+  cycle_start = true;
+  comp_start = false;
+  comp_end = false;
+  exp_start = true;
+  exp_end = true;
+  //exp_timer_end = true;
+  Exhale_timer_timout();
+  //run_motor = true
   return true;
 }
