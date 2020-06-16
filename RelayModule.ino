@@ -1,4 +1,4 @@
-
+#include "debug.h"
 #include "Arduino.h"
 #include "./libraries/MsTimer2/MsTimer2.cpp"
 //*****************
@@ -12,7 +12,7 @@ float PLAT;
 
 
 void setup() {
-
+  VENT_DEBUG_FUNC_START();
   Serial.begin(115200);     // The Serial port of Arduino baud rate.
   Serial.println(F("Signum Techniks"));           // say hello to check serial line
 
@@ -59,7 +59,7 @@ void setup() {
   //home cycle on power up
   home_cycle = true;
   motion_profile_count_temp = 0;
-  Serial.print("Power On Home Cycle : ");
+  VENT_DEBUG_ERROR("Power On Home Cycle : ", 0);
   run_pulse_count_temp = 0.0;
   run_pulse_count = 200000.0;
   digitalWrite(MOTOR_DIR_PIN, EXP_DIR);
@@ -69,14 +69,15 @@ void setup() {
 
   delay(5000);
   flag_Serial_requested = true;
-  Serial.println("Requesting paramemters : ");
+  VENT_DEBUG_ERROR("Requesting paramemters : $VSP10001&", 0);
   Serial3.print("$VSP10001&");
+  VENT_DEBUG_FUNC_END();
 }
 
 
 
 void loop() {
-
+  VENT_DEBUG_FUNC_START();
 //#if GP_connected
 //  //delay(10);
 //  vout = analogRead(INHALE_GAUGE_PRESSURE) * 0.0048828125;
@@ -95,12 +96,18 @@ void loop() {
     EXHALE_VLV_CLOSE();
     //Serial.print("PEEP:"); Serial.println(Epressure); 
     INHALE_VLV_OPEN();
-    Serial.print("IER: 1:"); Serial.print(IER); Serial.print("  BPM: "); Serial.print(BPM); Serial.print("  TV: "); Serial.print(tidal_volume);
-    Serial.print("  Stroke: "); Serial.println(Stroke_length);
-    Serial.print("comp : "); Serial.print((c_end_millis - c_start_millis) / 1000.0); Serial.print("/"); Serial.print(inhale_time);
-    Serial.print("  ExpTime : "); Serial.print((e_timer_end_millis - e_start_millis) / 1000.0); Serial.print("/"); Serial.print(exhale_time);
-    Serial.print("  Cycle : "); Serial.print((e_timer_end_millis - c_start_millis) / 1000.0); Serial.print("/"); Serial.println(cycle_time);
-    Serial.print("Inhale-hold : "); Serial.print(inhale_hold_time / 1000.0); Serial.print("  MotorRet. : "); Serial.println((e_end_millis - e_start_millis) / 1000.0);
+    VENT_DEBUG_ERROR("IER: 1:", IER); 
+    VENT_DEBUG_ERROR("  BPM: ", BPM);  
+    VENT_DEBUG_ERROR("  TV: ", tidal_volume); 
+    VENT_DEBUG_ERROR("  Stroke: ", Stroke_length);
+    VENT_DEBUG_ERROR("comp : ", (c_end_millis - c_start_millis) / 1000.0);  
+    VENT_DEBUG_ERROR("/", inhale_time);
+    VENT_DEBUG_ERROR("  ExpTime : ", (e_timer_end_millis - e_start_millis) / 1000.0); 
+    VENT_DEBUG_ERROR("/", exhale_time); 
+    VENT_DEBUG_ERROR("  Cycle : ", (e_timer_end_millis - c_start_millis) / 1000.0);  
+    VENT_DEBUG_ERROR("/", cycle_time);
+    VENT_DEBUG_ERROR("Inhale-hold : ", inhale_hold_time / 1000.0);  
+    VENT_DEBUG_ERROR("  MotorRet. : ", (e_end_millis - e_start_millis) / 1000.0);
     if ((BPM_new != BPM) || (tidal_volume_new != tidal_volume) || (IER_new != IER)) {
       convert_all_set_params_2_machine_values();
     }
@@ -128,6 +135,7 @@ void loop() {
 
   //Expansion started & is in progress
   if ((cycle_start == true) && (exp_start == true) && (exp_end == false)) {  }
+  VENT_DEBUG_FUNC_END();
 }
 
 
@@ -136,6 +144,7 @@ void loop() {
 
 
 ISR(TIMER1_COMPA_vect) { //timer1 interrupt 1Hz toggles pin 13 (LED)
+  VENT_DEBUG_FUNC_START();
   //generates pulse wave of frequency 1Hz/2 = 0.5kHz (takes two cycles for full wave- toggle high then toggle low)
   if (run_motor == true) {
     if ((motion_profile_count_temp == 0) && (run_pulse_count_temp == 0.0)) {
@@ -179,7 +188,7 @@ ISR(TIMER1_COMPA_vect) { //timer1 interrupt 1Hz toggles pin 13 (LED)
           run_pulse_count_temp = 0.0;
           home_cycle = false;
           motion_profile_count_temp = 0;
-          Serial.println("Home Cycle Complete...");
+          VENT_DEBUG_ERROR("Home Cycle Complete...", 0);
           if (cycle_start == true) inti_Start();
         }
       }
@@ -243,15 +252,18 @@ ISR(TIMER1_COMPA_vect) { //timer1 interrupt 1Hz toggles pin 13 (LED)
       interrupts();
     }
   }
+  VENT_DEBUG_FUNC_END();
 }
 
 boolean Start_exhale_cycle() {
+  VENT_DEBUG_FUNC_START();
   Serial3.print("$VSSY0003&");   //expansion flag
   //Serial.print("CYCLE Exhale Time: " );Serial.println(exhale_time);
   MsTimer2::set(exhale_time * 1000, Exhale_timer_timout); //period
   MsTimer2::start();
   EXHALE_SYNC_PIN_ON();  //DIGITAL PIN SYNC
-  digitalWrite(INHALE_SYNC_PIN, LOW); digitalWrite(EXHALE_SYNC_PIN, HIGH);
+  digitalWrite(INHALE_SYNC_PIN, LOW); 
+  digitalWrite(EXHALE_SYNC_PIN, HIGH);
 
   cycle_start = true;
   comp_start = false;
@@ -260,11 +272,14 @@ boolean Start_exhale_cycle() {
   exp_end = false;
   exp_timer_end = false;
   run_motor = true;
+  VENT_DEBUG_FUNC_END();
   return true;
 }
 
 boolean Start_inhale_cycle() {
-  Serial3.print("$VSSY0001&");   //comp start flag
+  VENT_DEBUG_FUNC_START();
+  VENT_DEBUG_ERROR("$VSSY0001&", 0);//comp start flag
+  Serial3.print("$VSSY0001&");   
   INHALE_SYNC_PIN_ON();  //DIGITAL PIN SYNC
   digitalWrite(INHALE_SYNC_PIN, HIGH); digitalWrite(EXHALE_SYNC_PIN, LOW);
   cycle_start = true;
@@ -274,16 +289,19 @@ boolean Start_inhale_cycle() {
   exp_end = false;
   exp_timer_end = false;
   run_motor = true;
+  VENT_DEBUG_FUNC_END();
   return true;
 }
 
 boolean Exhale_timer_timout() {
+  VENT_DEBUG_FUNC_START();
   MsTimer2::stop();
   digitalWrite(INDICATOR_LED, digitalRead(INDICATOR_LED) ^ 1);
   e_timer_end_millis = millis();
   EXHALE_VLV_CLOSE();
   INHALE_VLV_OPEN();
   exp_timer_end = true;
+  VENT_DEBUG_FUNC_END();
   return true;
 }
 
@@ -309,7 +327,8 @@ void load_TCCR1B_var(int TCCR1B_var_temp) {
 }
 
 boolean convert_all_set_params_2_machine_values() {
-  Serial.println(("Speed curve calculations : "));
+  VENT_DEBUG_FUNC_START();
+  VENT_DEBUG_ERROR("Speed curve calculations : ", 0);
 
   BPM = BPM_new;
   tidal_volume = tidal_volume_new;
@@ -324,8 +343,8 @@ boolean convert_all_set_params_2_machine_values() {
   //  exhale_time = exhale_time - (inhale_hold_time/1000);
 
   MsTimer2::set(exhale_time * 1000, Exhale_timer_timout); //period
-  Serial.print("Calculated Exhale Time: " ); Serial.println(exhale_time);
-
+  VENT_DEBUG_ERROR("Calculated Exhale Time: ", exhale_time );
+ 
   float inhale_vpeak = ((Stroke_length * 0.8) / (inhale_time * 0.8)) ;
   float exhale_vpeak = ((Stroke_length * 0.8) / (0.90 * 0.8));  //exhale_time
 
@@ -396,24 +415,24 @@ boolean convert_all_set_params_2_machine_values() {
   //    Serial.print("Compression: "); Serial.print(i); Serial.print(" | step: "); Serial.print(compression_step_array[i]); Serial.print(" | rpm: "); Serial.println(compression_speed_array[i]);
   //    Serial.print("expansion  : "); Serial.print(i); Serial.print(" | step: "); Serial.print(expansion_step_array[i]);  Serial.print(" | rpm: "); Serial.println(expansion_speed_array[i]);
   //  }
-
+  VENT_DEBUG_FUNC_END();
   return true;
 }
 
 boolean stop_timer() {
   //cli();  // One way to disable the timer, and all interrupts
-
+  VENT_DEBUG_FUNC_START();
   TCCR1B &= ~(1 << CS12); // turn off the clock altogether
   TCCR1B &= ~(1 << CS11);
   TCCR1B &= ~(1 << CS10);
 
   TIMSK1 &= ~(1 << OCIE1A); // turn off the timer interrupt
-
+  VENT_DEBUG_FUNC_END();
   return true;
 }
 
 void pre_calculate_timer_values_4_different_RPM(float rpm) {
-
+  VENT_DEBUG_FUNC_START();
   double freq;
   //  long OCR1A_var;
   //  long TCCR1B_var;
@@ -467,9 +486,11 @@ void pre_calculate_timer_values_4_different_RPM(float rpm) {
   //  Serial.println("5 :");
   //  Serial.print(("TCCR : ")); Serial.print(TCCR1B_var);
   //  Serial.print(("       OCR1 : ")); Serial.println(OCR1A_var);
+  VENT_DEBUG_FUNC_END();
 }
 
 boolean initialize_timer1_for_set_RPM(float rpm) {
+  VENT_DEBUG_FUNC_START();
   double freq;
   //  long OCR1A_var;
   //  long TCCR1B_var;
@@ -552,5 +573,5 @@ boolean initialize_timer1_for_set_RPM(float rpm) {
   // enable timer compare interrupt
   TIMSK1 |= (1 << OCIE1A);
   interrupts(); // enable all interrupts
-
+  VENT_DEBUG_FUNC_END();
 }

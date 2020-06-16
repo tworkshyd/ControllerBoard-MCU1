@@ -1,6 +1,6 @@
 //#include "Variables.h"
 #include "relayModule.h"
-
+#include "debug.h"
 
 void serialEvent() {
   while (Serial.available()) {
@@ -50,7 +50,7 @@ boolean Prcs_RxData() {
   String p3;
   String p4;
   String payload;
-
+  VENT_DEBUG_FUNC_START();
   p1 = rxdata.substring(1, 3);
   p2 = rxdata.substring(3, 5);
   p3 = rxdata.substring(5, 7);
@@ -88,8 +88,8 @@ boolean Prcs_RxData() {
     }
     else if (p2 == "P1") {
       tidal_volume_new = payload.toInt();
-      Serial.print("TV : "); Serial.println(tidal_volume_new);
-
+      VENT_DEBUG_ERROR("TV : ", tidal_volume_new);
+      
       //      if (tidal_volume_new == 50) Stroke_length_new = 16;
       //      if (tidal_volume_new == 100) Stroke_length_new = 24;
       //      if (tidal_volume_new == 150) Stroke_length_new = 31;
@@ -111,7 +111,7 @@ boolean Prcs_RxData() {
       //      if (tidal_volume_new == 950) Stroke_length_new = 105;
 
       //Stroke_length_new=tidal_volume_new/10;
-      Serial.print("SL : "); Serial.println(Stroke_length_new);
+      VENT_DEBUG_ERROR("SL : ", Stroke_length_new);
       if (flag_Serial_requested == true) {
         Serial3.print("$VSP20002&");
       }
@@ -119,11 +119,11 @@ boolean Prcs_RxData() {
     }
     else if (p2 == "P2") {
       BPM_new = payload.toInt();
-      Serial.print("BPM : "); Serial.println(BPM_new);
+      VENT_DEBUG_ERROR("BPM : ", BPM_new);
       cycle_time = 60.0 / BPM_new;
-      Serial.print("cycle time : "); Serial.println(cycle_time);
+      VENT_DEBUG_ERROR("cycle time : ", cycle_time);
       inhale_hold_time = (cycle_time * (inhale_hold_percentage / 100)) * 1000;
-      Serial.print("Compression hold in mS: "); Serial.println(inhale_hold_time);
+      VENT_DEBUG_ERROR("Compression hold in mS: ", inhale_hold_time);
       if (flag_Serial_requested == true) {
         Serial3.print("$VSP50004&");
       }
@@ -184,7 +184,7 @@ boolean Prcs_RxData() {
       if (p3 == "01") {
         if (p4 == "00") {
           //digitalWrite(O2Cyl_VLV_PIN, LOW);
-          Serial.println("2Hln_VLV SELECTED");
+          VENT_DEBUG_ERROR("2Hln_VLV SELECTED ", 0);
           O2_line_option = 1;
           if (cycle_start == true) {
             O2Cyl_VLV_CLOSE();
@@ -192,7 +192,7 @@ boolean Prcs_RxData() {
           }
         } else if (p4 == "01") {
           //digitalWrite(O2Cyl_VLV_PIN, HIGH);
-          Serial.println("O2Cyl_VLV SELECTED");
+          VENT_DEBUG_ERROR("O2Cyl_VLV SELECTED ", 0);
           O2_line_option = 0;
           if (cycle_start == true) {
             O2Cyl_VLV_OPEN();
@@ -202,7 +202,7 @@ boolean Prcs_RxData() {
       } else if (p3 == "02") {
         if (p4 == "00") {
           //digitalWrite(O2Hln_VLV_PIN, LOW);
-          Serial.println("O2Cyl_VLV SELECTED");
+          VENT_DEBUG_ERROR("O2Cyl_VLV SELECTED ", 0);
           O2_line_option = 0;
           if (cycle_start == true) {
             O2Hln_VLV_CLOSE();
@@ -210,7 +210,7 @@ boolean Prcs_RxData() {
           }
         } else if (p4 == "01") {
           //digitalWrite(O2Hln_VLV_PIN, HIGH);
-          Serial.println("2Hln_VLV SELECTED");
+          VENT_DEBUG_ERROR("2Hln_VLV SELECTED ", 0);
           O2_line_option = 1;
           if (cycle_start == true) {
             O2Hln_VLV_OPEN();
@@ -220,23 +220,27 @@ boolean Prcs_RxData() {
       }
     }
   }
+  VENT_DEBUG_FUNC_END();
   return true;
 }
 
 boolean open_selected_O2_value(void) {
+  VENT_DEBUG_FUNC_START();
   if (O2_line_option == 0) {
-    Serial.println("O2Cyl_VLV Opened...");
+    VENT_DEBUG_ERROR("O2Cyl_VLV Opened... ", 0);
     O2Hln_VLV_CLOSE();
     O2Cyl_VLV_OPEN();
   } else
   {
-    Serial.println("2Hln_VLV Opened...");
+    VENT_DEBUG_ERROR("2Hln_VLV Opened... ", 0);
     O2Hln_VLV_OPEN();
     O2Cyl_VLV_CLOSE();
   }
+  VENT_DEBUG_FUNC_END();
 }
 
 boolean inti_all_Valves(void) {
+  VENT_DEBUG_FUNC_START();
   //Normally Opened
   EXHALE_VLV_OPEN();
   INHALE_VLV_OPEN();
@@ -245,13 +249,15 @@ boolean inti_all_Valves(void) {
   INHALE_RELEASE_VLV_CLOSE();
   O2Cyl_VLV_CLOSE();
   O2Hln_VLV_CLOSE();
+  VENT_DEBUG_FUNC_END();
   return true;
 }
 
 
 boolean breathe_detected_skip_exhale_n_start_inhale() {
+  VENT_DEBUG_FUNC_START();
   Emergency_motor_stop = false;
-  Serial.println("Skipping Home Cycle : ");
+  VENT_DEBUG_ERROR("Skipping Home Cycle : ", 0);
   home_cycle = false;
   cycle_start = true;
   comp_start = false;
@@ -261,15 +267,17 @@ boolean breathe_detected_skip_exhale_n_start_inhale() {
   //exp_timer_end = true;
   Exhale_timer_timout();
   //run_motor = true
+  VENT_DEBUG_FUNC_END();
   return true;
 }
 
 boolean inti_Stop_n_Home() {
+  VENT_DEBUG_FUNC_START();
   cycle_start = false;
   Emergency_motor_stop = false;
   run_motor = true;
   Exhale_timer_timout();
-  Serial.println("Cycle Stop & goto Home : ");
+  VENT_DEBUG_ERROR("Cycle Stop & goto Home : ", 0);
   run_pulse_count = 200000;
   digitalWrite(MOTOR_DIR_PIN, EXP_DIR);
   initialize_timer1_for_set_RPM(home_speed_value * 10.0);
@@ -282,16 +290,18 @@ boolean inti_Stop_n_Home() {
   run_motor = true;
   INHALE_EXHALE_SYNC_PIN_OFF();  //DIGITAL PIN SYNC
   inti_all_Valves();
+  VENT_DEBUG_FUNC_END();
   return true;
 }
 
 boolean inti_Home_n_Start() {
+  VENT_DEBUG_FUNC_START();
   Emergency_motor_stop = false;
   motion_profile_count_temp = 0;
   run_pulse_count_temp = 0.0;
   if (digitalRead(HOME_SENSOR_PIN) == !(HOME_SENSE_VALUE))
   {
-    Serial.println("Home Cycle : ");
+    VENT_DEBUG_ERROR("Home Cycle : ", 0);
     run_pulse_count = 200000;
     digitalWrite(MOTOR_DIR_PIN, EXP_DIR);
     initialize_timer1_for_set_RPM(home_speed_value * 10.0);
@@ -307,14 +317,16 @@ boolean inti_Home_n_Start() {
   } else {
     inti_Start();
   }
+  VENT_DEBUG_FUNC_END();
   return true;
 }
 
 boolean inti_Start() {
+  VENT_DEBUG_FUNC_START();
   convert_all_set_params_2_machine_values();
   open_selected_O2_value();
   Emergency_motor_stop = false;
-  Serial.println("Skipping Home Cycle : ");
+  VENT_DEBUG_ERROR("Skipping Home Cycle : ", 0);
   home_cycle = false;
   cycle_start = true;
   comp_start = false;
@@ -324,5 +336,6 @@ boolean inti_Start() {
   //exp_timer_end = true;
   Exhale_timer_timout();
   //run_motor = true
+  VENT_DEBUG_FUNC_END();
   return true;
 }
